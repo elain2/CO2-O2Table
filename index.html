@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CO₂ Table — Freediving Dry Training</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Sans+KR:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #060d1a;
+    --surface: #0b1629;
+    --surface2: #0f1e35;
+    --border: rgba(56,189,248,0.12);
+    --accent: #38bdf8;
+    --accent2: #0ea5e9;
+    --hold: #f87171;
+    --hold2: #ef4444;
+    --rest: #fbbf24;
+    --rest2: #d97706;
+    --green: #34d399;
+    --text: #e0f0ff;
+    --muted: #64748b;
+    --subtle: #94a3b8;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Animated background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 50% at 20% 0%, rgba(14,165,233,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 80% 100%, rgba(56,189,248,0.05) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Wave lines */
+  body::after {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-image: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 59px,
+      rgba(56,189,248,0.03) 60px
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 24px 60px;
+  }
+
+  /* HEADER */
+  header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+
+  .tag {
+    display: inline-block;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--accent);
+    border: 1px solid rgba(56,189,248,0.3);
+    padding: 4px 14px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+    background: rgba(56,189,248,0.05);
+  }
+
+  h1 {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(2rem, 6vw, 3.5rem);
+    font-weight: 700;
+    letter-spacing: -1px;
+    line-height: 1.1;
+    color: #f0f9ff;
+  }
+
+  h1 sub {
+    font-size: 0.55em;
+    vertical-align: baseline;
+    color: var(--accent);
+  }
+
+  .header-sub {
+    margin-top: 12px;
+    color: var(--muted);
+    font-size: 13px;
+    letter-spacing: 1px;
+  }
+
+  /* CONTROLS */
+  .controls-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    margin-bottom: 32px;
+    display: flex;
+    gap: 20px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .field label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    text-transform: uppercase;
+  }
+
+  .field input, .field select {
+    background: var(--surface2);
+    border: 1px solid rgba(56,189,248,0.2);
+    border-radius: 10px;
+    color: var(--text);
+    padding: 10px 14px;
+    font-size: 15px;
+    font-family: 'Space Mono', monospace;
+    width: 90px;
+    transition: border-color 0.2s;
+    outline: none;
+  }
+
+  .field select { width: 180px; font-family: 'Noto Sans KR', sans-serif; font-size: 13px; }
+
+  .field input:focus, .field select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(56,189,248,0.1);
+  }
+
+  .btn-generate {
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    border: none;
+    border-radius: 10px;
+    color: #fff;
+    padding: 10px 28px;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    font-family: 'Space Mono', monospace;
+    transition: opacity 0.2s, transform 0.15s;
+    white-space: nowrap;
+  }
+  .btn-generate:hover { opacity: 0.88; transform: translateY(-1px); }
+  .btn-generate:active { transform: translateY(0); }
+
+  /* INFO BAR */
+  .info-bar {
+    background: rgba(56,189,248,0.06);
+    border: 1px solid rgba(56,189,248,0.15);
+    border-radius: 12px;
+    padding: 14px 20px;
+    margin-bottom: 28px;
+    font-size: 13px;
+    color: var(--subtle);
+    line-height: 1.7;
+  }
+  .info-bar strong { color: var(--accent); }
+
+  /* STATS ROW */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    text-align: center;
+    transition: border-color 0.2s;
+  }
+  .stat-card:hover { border-color: rgba(56,189,248,0.3); }
+
+  .stat-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .stat-value {
+    font-family: 'Space Mono', monospace;
+    font-size: 26px;
+    font-weight: 700;
+  }
+
+  .stat-value.blue { color: var(--accent); }
+  .stat-value.red { color: var(--hold); }
+  .stat-value.yellow { color: var(--rest); }
+
+  /* TABLE */
+  .table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 28px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  thead th {
+    background: rgba(14,165,233,0.15);
+    padding: 14px 16px;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--accent);
+    font-family: 'Space Mono', monospace;
+    text-transform: uppercase;
+    text-align: center;
+    font-weight: 400;
+  }
+
+  tbody tr {
+    border-top: 1px solid rgba(255,255,255,0.04);
+    transition: background 0.15s;
+    animation: rowIn 0.4s ease both;
+  }
+
+  @keyframes rowIn {
+    from { opacity: 0; transform: translateX(-10px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  tbody tr:hover { background: rgba(56,189,248,0.04); }
+
+  tbody td {
+    padding: 14px 16px;
+    text-align: center;
+    vertical-align: middle;
+  }
+
+  .round-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .time-hold {
+    font-family: 'Space Mono', monospace;
+    font-size: 16px;
+    font-weight: 700;
+    color: #f0f9ff;
+  }
+
+  .time-rest {
+    font-family: 'Space Mono', monospace;
+    font-size: 16px;
+    color: var(--rest);
+  }
+
+  /* Visual bar */
+  .bar-cell { min-width: 200px; }
+  .bar-row { display: flex; height: 18px; border-radius: 9px; overflow: hidden; gap: 2px; }
+  .bar-hold {
+    background: linear-gradient(90deg, var(--hold2), var(--hold));
+    border-radius: 9px 0 0 9px;
+    transition: width 0.6s ease;
+  }
+  .bar-rest {
+    background: linear-gradient(90deg, var(--rest2), var(--rest));
+    border-radius: 0 9px 9px 0;
+    transition: width 0.6s ease;
+    opacity: 0.8;
+  }
+
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-family: 'Space Mono', monospace;
+  }
+  .badge-hard { background: rgba(248,113,113,0.15); color: var(--hold); border: 1px solid rgba(248,113,113,0.3); }
+  .badge-focus { background: rgba(251,191,36,0.12); color: var(--rest); border: 1px solid rgba(251,191,36,0.3); }
+  .badge-warm { background: rgba(52,211,153,0.1); color: var(--green); border: 1px solid rgba(52,211,153,0.25); }
+
+  /* TIMER */
+  .timer-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 36px 28px;
+    text-align: center;
+    margin-bottom: 28px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .timer-card::before {
+    content: '';
+    position: absolute;
+    top: -40px; left: 50%;
+    transform: translateX(-50%);
+    width: 300px; height: 200px;
+    border-radius: 50%;
+    pointer-events: none;
+    transition: background 0.6s;
+  }
+
+  .timer-card.phase-hold::before {
+    background: radial-gradient(ellipse, rgba(239,68,68,0.12) 0%, transparent 70%);
+  }
+  .timer-card.phase-breathe::before {
+    background: radial-gradient(ellipse, rgba(52,211,153,0.1) 0%, transparent 70%);
+  }
+
+  .timer-phase {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    height: 16px;
+    color: var(--muted);
+    transition: color 0.3s;
+  }
+  .timer-phase.hold { color: var(--hold); }
+  .timer-phase.breathe { color: var(--green); }
+
+  .timer-round {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 16px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  .timer-display {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(3rem, 12vw, 6rem);
+    font-weight: 700;
+    letter-spacing: 4px;
+    color: var(--accent);
+    transition: color 0.3s;
+    line-height: 1;
+    margin-bottom: 20px;
+  }
+  .timer-display.hold { color: var(--hold); }
+  .timer-display.breathe { color: var(--green); }
+
+  .progress-track {
+    width: 100%;
+    height: 4px;
+    background: rgba(255,255,255,0.07);
+    border-radius: 2px;
+    margin-bottom: 28px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.8s linear, background 0.3s;
+    background: var(--accent);
+  }
+  .progress-fill.hold { background: var(--hold); }
+  .progress-fill.breathe { background: var(--green); }
+
+  .timer-btns {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 1px;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 24px;
+    cursor: pointer;
+    font-weight: 700;
+    transition: opacity 0.2s, transform 0.15s;
+  }
+  .btn:hover { opacity: 0.85; transform: translateY(-1px); }
+  .btn-start { background: linear-gradient(135deg, var(--accent2), var(--accent)); color: #fff; }
+  .btn-pause { background: linear-gradient(135deg, #d97706, #fbbf24); color: #fff; }
+  .btn-stop { background: linear-gradient(135deg, #dc2626, #ef4444); color: #fff; }
+  .btn-reset { background: rgba(255,255,255,0.07); color: var(--subtle); border: 1px solid rgba(255,255,255,0.1); }
+
+  /* TIPS */
+  .tips {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+  }
+
+  .tip-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+  }
+
+  .tip-icon { font-size: 20px; margin-bottom: 8px; }
+  .tip-title { font-size: 12px; font-weight: 700; color: var(--accent); margin-bottom: 6px; letter-spacing: 0.5px; }
+  .tip-text { font-size: 12px; color: var(--subtle); line-height: 1.7; }
+
+  .warning {
+    background: rgba(239,68,68,0.06);
+    border: 1px solid rgba(239,68,68,0.2);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 24px;
+    font-size: 12px;
+    color: rgba(248,113,113,0.9);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  @media (max-width: 600px) {
+    .stats { grid-template-columns: repeat(3, 1fr); }
+    .controls-card { flex-direction: column; align-items: stretch; }
+    .field input, .field select { width: 100%; }
+    thead th:nth-child(4) { display: none; }
+    tbody td:nth-child(4) { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="tag">FREEDIVING · DRY TRAINING</div>
+    <h1>CO<sub>₂</sub> TABLE</h1>
+    <p class="header-sub">이산화탄소 내성 강화 훈련 테이블 생성기</p>
+  </header>
+
+  <div class="controls-card">
+    <div class="field">
+      <label>PB (분)</label>
+      <input type="number" id="pbMin" value="3" min="1" max="10">
+    </div>
+    <div class="field">
+      <label>PB (초)</label>
+      <input type="number" id="pbSec" value="30" min="0" max="59">
+    </div>
+    <div class="field">
+      <label>테이블 방식</label>
+      <select id="mode">
+        <option value="co2">CO₂ 테이블 (휴식 감소)</option>
+        <option value="o2">O₂ 테이블 (참기 증가)</option>
+      </select>
+    </div>
+    <button class="btn-generate" onclick="generate()">GENERATE</button>
+  </div>
+
+  <div class="info-bar" id="info-bar"></div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>SET</th>
+          <th>🫁 숨 참기</th>
+          <th>⏳ 휴식</th>
+          <th class="bar-cell">비율</th>
+          <th>비고</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="warning">
+    ⚠️ <span>어지러움, 블랙아웃 증상 즉시 중단 · <strong>절대 혼자 훈련하지 마세요</strong> · 식후 2시간 후 권장</span>
+  </div>
+
+  <div class="timer-card" id="timer-card">
+    <div class="timer-phase" id="timer-phase">READY</div>
+    <div class="timer-round" id="timer-round">세트 — / —</div>
+    <div class="timer-display" id="timer-display">00:00</div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progress-fill"></div>
+    </div>
+    <div class="timer-btns">
+      <button class="btn btn-start" onclick="startTimer()">▶ 시작</button>
+      <button class="btn btn-pause" onclick="pauseTimer()">⏸ 일시정지</button>
+      <button class="btn btn-reset" onclick="resetTimer()">↺ 초기화</button>
+    </div>
+  </div>
+
+  <div class="tips">
+    <div class="tip-card">
+      <div class="tip-icon">💨</div>
+      <div class="tip-title">호흡법</div>
+      <div class="tip-text">휴식 시간엔 느리고 깊게. 마지막 숨은 폐 70~80%만 채우기. <strong style="color:#f87171">과호흡 금지.</strong></div>
+    </div>
+    <div class="tip-card">
+      <div class="tip-icon">🫁</div>
+      <div class="tip-title">컨트렉션</div>
+      <div class="tip-text">횡격막 수축 느껴지면 정상. 이 불편함에 익숙해지는 게 CO₂ 테이블의 핵심 목적.</div>
+    </div>
+    <div class="tip-card">
+      <div class="tip-icon">📅</div>
+      <div class="tip-title">훈련 빈도</div>
+      <div class="tip-text">주 2~3회 권장. 매일 하면 역효과. 충분한 회복 후 다음 세션 진행.</div>
+    </div>
+    <div class="tip-card">
+      <div class="tip-icon">📈</div>
+      <div class="tip-title">다음 단계</div>
+      <div class="tip-text">4~6주 후 참기 시간 15초 증가 or O₂ 테이블 병행. PB 10% 이상 향상 기대.</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let tableData = [];
+let timerInterval = null;
+let currentPhase = 'idle';
+let currentRound = 0;
+let timeLeft = 0;
+let phaseDuration = 0;
+let isPaused = false;
+let audioCtx = null;
+
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+// 짧은 단음 비프
+function beep(freq, duration, vol=0.4, type='sine') {
+  const ctx = getAudioCtx();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, ctx.currentTime);
+  gain.gain.setValueAtTime(vol, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+  osc.start(ctx.currentTime);
+  osc.stop(ctx.currentTime + duration);
+}
+
+// 호흡 시작 알림: 낮고 부드러운 단음
+function playBreathSound() {
+  beep(440, 0.3, 0.35, 'sine');
+}
+
+// 참기 시작 알림: 높고 짧은 이중음
+function playHoldSound() {
+  beep(660, 0.15, 0.4, 'sine');
+  setTimeout(() => beep(880, 0.25, 0.35, 'sine'), 160);
+}
+
+// 세트 완료 알림: 세 번 짧게
+function playSetDoneSound() {
+  beep(523, 0.12, 0.35, 'sine');
+  setTimeout(() => beep(659, 0.12, 0.35, 'sine'), 140);
+  setTimeout(() => beep(784, 0.3,  0.4,  'sine'), 280);
+}
+
+// 전체 완료 알림: 밝고 긴 상승 멜로디
+function playDoneSound() {
+  const notes = [523, 659, 784, 1047];
+  notes.forEach((f, i) => setTimeout(() => beep(f, 0.35, 0.4, 'sine'), i * 180));
+}
+
+function fmt(sec) {
+  return `${String(Math.floor(sec/60)).padStart(2,'0')}:${String(sec%60).padStart(2,'0')}`;
+}
+
+function generate() {
+  const pbMin = parseInt(document.getElementById('pbMin').value)||3;
+  const pbSec = parseInt(document.getElementById('pbSec').value)||30;
+  const pb = pbMin*60+pbSec;
+  const mode = document.getElementById('mode').value;
+  tableData = [];
+
+  if (mode === 'co2') {
+    const hold = Math.round(pb*0.5/5)*5;
+    for (let i=0;i<8;i++) {
+      const rest = Math.max(120-15*i, 30);
+      tableData.push({round:i+1, hold, rest});
+    }
+  } else {
+    const startHold = Math.round(pb*0.4/5)*5;
+    for (let i=0;i<8;i++) {
+      tableData.push({round:i+1, hold:startHold+15*i, rest:120});
+    }
+  }
+
+  renderInfo(mode, pb);
+  renderStats(pb);
+  renderTable(pb);
+  resetTimer();
+}
+
+function renderInfo(mode, pb) {
+  const isCO2 = mode==='co2';
+  const hold = tableData[0].hold;
+  document.getElementById('info-bar').innerHTML = isCO2
+    ? `<strong>CO₂ 테이블</strong>: 숨 참기 <strong style="color:#f0f9ff">${fmt(hold)}</strong> 고정 (PB의 ${Math.round(hold/pb*100)}%), 휴식을 2분→30초로 줄여가며 CO₂ 내성을 키웁니다. 횡격막 수축에 편안해지는 것이 목표입니다.`
+    : `<strong>O₂ 테이블</strong>: 휴식 <strong style="color:#f0f9ff">2:00</strong> 고정, 참기를 ${fmt(tableData[0].hold)}부터 15초씩 늘려가며 최대 정지 시간을 향상시킵니다.`;
+}
+
+function renderStats(pb) {
+  const totalSec = tableData.reduce((a,r)=>a+r.hold+r.rest,0) - tableData[tableData.length-1].rest;
+  const totalHold = tableData.reduce((a,r)=>a+r.hold,0);
+  document.getElementById('stats').innerHTML = `
+    <div class="stat-card"><div class="stat-label">총 훈련 시간</div><div class="stat-value blue">${fmt(totalSec)}</div></div>
+    <div class="stat-card"><div class="stat-label">총 숨 참기</div><div class="stat-value red">${fmt(totalHold)}</div></div>
+    <div class="stat-card"><div class="stat-label">PB 대비</div><div class="stat-value yellow">${Math.round(tableData[0].hold/pb*100)}%</div></div>
+  `;
+}
+
+function renderTable(pb) {
+  const maxTotal = tableData.reduce((mx,r)=>Math.max(mx,r.hold+r.rest),0);
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = '';
+  tableData.forEach((row, i) => {
+    const holdW = Math.round(row.hold/maxTotal*180);
+    const restW = Math.round(row.rest/maxTotal*180);
+    let badge = '';
+    if (row.rest <= 45 || row.hold >= pb*0.75) badge = '<span class="badge badge-hard">🔥 힘듦</span>';
+    else if (row.rest <= 75 || row.hold >= pb*0.62) badge = '<span class="badge badge-focus">⚡ 집중</span>';
+    else if (i===0) badge = '<span class="badge badge-warm">✓ 워밍업</span>';
+
+    const tr = document.createElement('tr');
+    tr.style.animationDelay = `${i*60}ms`;
+    tr.innerHTML = `
+      <td class="round-num">${row.round}</td>
+      <td class="time-hold">${fmt(row.hold)}</td>
+      <td class="time-rest">${fmt(row.rest)}</td>
+      <td class="bar-cell">
+        <div class="bar-row">
+          <div class="bar-hold" style="width:${holdW}px"></div>
+          <div class="bar-rest" style="width:${restW}px"></div>
+        </div>
+      </td>
+      <td>${badge}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+// ---- TIMER ----
+function startTimer() {
+  if (tableData.length===0) { generate(); return; }
+  getAudioCtx(); // unlock audio on user gesture
+  if (isPaused) {
+    isPaused = false;
+    timerInterval = setInterval(tick, 1000);
+    return;
+  }
+  clearInterval(timerInterval);
+  isPaused = false;
+  currentRound = 0;
+  playBreathSound();
+  startPhase('breathe');
+}
+
+function startPhase(phase) {
+  currentPhase = phase;
+  phaseDuration = phase==='breathe' ? tableData[currentRound].rest : tableData[currentRound].hold;
+  timeLeft = phaseDuration;
+  updateUI();
+  clearInterval(timerInterval);
+  timerInterval = setInterval(tick, 1000);
+}
+
+function tick() {
+  if (timeLeft > 0) { timeLeft--; updateUI(); return; }
+  clearInterval(timerInterval);
+  if (currentPhase==='breathe') { playHoldSound(); startPhase('hold'); return; }
+  currentRound++;
+  if (currentRound>=tableData.length) {
+    done(); return;
+  }
+  playSetDoneSound();
+  setTimeout(() => { playBreathSound(); startPhase('breathe'); }, 600);
+}
+
+function done() {
+  playDoneSound();
+  document.getElementById('timer-phase').textContent = 'COMPLETE';
+  document.getElementById('timer-phase').className = 'timer-phase breathe';
+  document.getElementById('timer-display').textContent = '🎉';
+  document.getElementById('timer-display').className = 'timer-display';
+  document.getElementById('timer-round').textContent = '훈련 완료! 수고하셨습니다';
+  document.getElementById('progress-fill').style.width = '100%';
+  document.getElementById('progress-fill').className = 'progress-fill breathe';
+  document.getElementById('timer-card').className = 'timer-card phase-breathe';
+}
+
+function updateUI() {
+  const disp = document.getElementById('timer-display');
+  const phase = document.getElementById('timer-phase');
+  const round = document.getElementById('timer-round');
+  const fill = document.getElementById('progress-fill');
+  const card = document.getElementById('timer-card');
+
+  disp.textContent = fmt(timeLeft);
+  const pct = ((phaseDuration-timeLeft)/phaseDuration*100).toFixed(1);
+  fill.style.width = pct+'%';
+
+  if (currentPhase==='breathe') {
+    disp.className = 'timer-display breathe';
+    phase.className = 'timer-phase breathe';
+    phase.textContent = '💨 BREATHE';
+    fill.className = 'progress-fill breathe';
+    card.className = 'timer-card phase-breathe';
+    round.textContent = `세트 ${currentRound+1} 준비 중 / ${tableData.length}`;
+  } else {
+    disp.className = 'timer-display hold';
+    phase.className = 'timer-phase hold';
+    phase.textContent = '🫁 HOLD';
+    fill.className = 'progress-fill hold';
+    card.className = 'timer-card phase-hold';
+    round.textContent = `세트 ${currentRound+1} / ${tableData.length}`;
+  }
+}
+
+function pauseTimer() {
+  if (isPaused) return;
+  isPaused = true;
+  clearInterval(timerInterval);
+}
+
+function resetTimer() {
+  clearInterval(timerInterval);
+  isPaused = false;
+  currentPhase = 'idle';
+  currentRound = 0;
+  const disp = document.getElementById('timer-display');
+  disp.textContent = '00:00';
+  disp.className = 'timer-display';
+  document.getElementById('timer-phase').textContent = 'READY';
+  document.getElementById('timer-phase').className = 'timer-phase';
+  document.getElementById('timer-round').textContent = '시작 버튼을 눌러주세요';
+  document.getElementById('progress-fill').style.width = '0%';
+  document.getElementById('progress-fill').className = 'progress-fill';
+  document.getElementById('timer-card').className = 'timer-card';
+}
+
+// Init
+generate();
+</script>
+
+<footer style="
+  position: relative; z-index: 1;
+  text-align: center;
+  padding: 28px 24px 40px;
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.8;
+  border-top: 1px solid rgba(56,189,248,0.07);
+">
+  <p>개발자는 트레이닝 중 ...</p>
+  <p>문의: 인스타 <a href="https://www.instagram.com/free.young.510" target="_blank" style="color:#38bdf8; text-decoration:none; font-family:'Space Mono',monospace;">@free.young.510</a></p>
+</footer>
+</body>
+</html>
