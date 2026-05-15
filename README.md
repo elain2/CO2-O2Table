@@ -4,6 +4,10 @@
 
 🔗 **[Live Demo → elain2.github.io/CO2-O2Table](https://elain2.github.io/CO2-O2Table)**
 
+### Demo
+
+<video src="demo.mov" controls width="600"></video>
+
 ---
 
 ## 📋 주요 기능
