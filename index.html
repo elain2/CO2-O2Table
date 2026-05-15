@@ -6,6 +6,26 @@
 <title>CO₂ Table — Freediving Dry Training</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Sans+KR:wght@300;400;600;700&display=swap" rel="stylesheet">
 <style>
+  /* NAV */
+  .nav {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+  .nav a {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: #64748b;
+    text-decoration: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid rgba(56,189,248,0.12);
+    transition: all 0.2s;
+  }
+  .nav a:hover { color: #38bdf8; border-color: rgba(56,189,248,0.3); }
+  .nav a.active { color: #38bdf8; border-color: #38bdf8; background: rgba(56,189,248,0.08); }
+
   :root {
     --bg: #060d1a;
     --surface: #0b1629;
@@ -462,6 +482,11 @@
 </head>
 <body>
 <div class="container">
+
+  <nav class="nav">
+    <a href="index.html" class="active">CO2/O2 TABLE</a>
+    <a href="diving-simulation.html">DIVE SIMULATION</a>
+  </nav>
 
   <header>
     <div class="tag">FREEDIVING · DRY TRAINING</div>
