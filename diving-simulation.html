@@ -211,28 +211,6 @@
     border: 1px solid rgba(255,255,255,0.1);
   }
 
-  /* API KEY */
-  .api-section {
-    margin-bottom: 20px;
-    padding-bottom: 20px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .api-section .field input {
-    width: 300px;
-  }
-
-  .api-hint {
-    font-size: 11px;
-    color: var(--muted);
-    margin-top: 8px;
-  }
-
-  .api-hint a {
-    color: var(--accent);
-    text-decoration: none;
-  }
-
   /* PARAMS GRID */
   .params-grid {
     display: grid;
@@ -649,30 +627,6 @@
     line-height: 1.6;
   }
 
-  /* Loading */
-  .loading {
-    display: none;
-    align-items: center;
-    gap: 8px;
-    color: var(--accent);
-    font-size: 12px;
-  }
-
-  .loading.show { display: flex; }
-
-  .spinner {
-    width: 16px;
-    height: 16px;
-    border: 2px solid rgba(56,189,248,0.3);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
-
   /* Footer */
   footer {
     position: relative;
@@ -710,18 +664,10 @@
   <header>
     <div class="tag">FREEDIVING · DIVE SIMULATION</div>
     <h1>DIVE SIM</h1>
-    <p class="header-sub">AI 기반 프리다이빙 시뮬레이션 트레이너</p>
+    <p class="header-sub">프리다이빙 시뮬레이션 트레이너</p>
   </header>
 
   <div class="controls-card">
-    <div class="api-section">
-      <div class="field">
-        <label>GEMINI API KEY</label>
-        <input type="password" id="apiKey" placeholder="AIza...">
-      </div>
-      <p class="api-hint">API 키는 <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a>에서 무료로 발급받을 수 있습니다.</p>
-    </div>
-
     <div class="controls-row">
       <div class="field">
         <label>목표 깊이 (M)</label>
@@ -731,11 +677,7 @@
         <label>중성부력 깊이 (M)</label>
         <input type="number" id="neutralBuoyancy" value="10" min="5" max="30">
       </div>
-      <button class="btn btn-generate" onclick="getRecommendation()">AI 추천받기</button>
-      <div class="loading" id="loading">
-        <div class="spinner"></div>
-        <span>Gemini가 분석 중...</span>
-      </div>
+      <button class="btn btn-generate" onclick="calculateRecommendation()">파라미터 계산</button>
     </div>
 
     <div class="params-grid" id="paramsGrid">
@@ -935,160 +877,97 @@ function fmt(sec) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-// Gemini API - 사용 가능한 모델 찾기
-async function findAvailableModel(apiKey) {
-  try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-    const data = await response.json();
-
-    if (data.error) {
-      throw new Error(data.error.message);
-    }
-
-    // generateContent를 지원하는 모델 찾기 (flash 우선, 그 다음 pro)
-    const models = data.models || [];
-    const generateModels = models.filter(m =>
-      m.supportedGenerationMethods &&
-      m.supportedGenerationMethods.includes('generateContent')
-    );
-
-    // 우선순위: flash > pro (비용/속도 고려)
-    const preferred = generateModels.find(m => m.name.includes('flash')) ||
-                      generateModels.find(m => m.name.includes('pro')) ||
-                      generateModels[0];
-
-    if (!preferred) {
-      throw new Error('사용 가능한 모델이 없습니다.');
-    }
-
-    console.log('사용 가능한 모델:', generateModels.map(m => m.name));
-    console.log('선택된 모델:', preferred.name);
-
-    return preferred.name; // 예: "models/gemini-1.5-flash"
-  } catch (error) {
-    console.error('모델 목록 조회 실패:', error);
-    throw error;
-  }
-}
-
-// Gemini API call
-async function getRecommendation() {
-  const apiKey = document.getElementById('apiKey').value.trim();
+/**
+ * 프리다이빙 파라미터 계산 - 물리학 및 생리학 기반
+ *
+ * 참고 원리:
+ * 1. Boyle's Law: P1V1 = P2V2 (압력과 부피의 관계)
+ *    - 수면(1기압)에서 10m마다 1기압씩 증가
+ *    - 폐 부피는 깊이에 따라 압축됨
+ *
+ * 2. 마우스필 타이밍:
+ *    - RV(잔기량)에 도달하기 전에 수행해야 함
+ *    - 일반적으로 TLC(총폐활량)의 20-25%가 RV
+ *    - 대부분의 다이버는 25-35m에서 RV에 도달
+ *    - 따라서 마우스필은 10-20m 사이에서 수행
+ *
+ * 3. 프리폴 시작점:
+ *    - 중성부력 이후 음성부력이 시작되는 지점
+ *    - 일반적으로 중성부력 깊이 + 5-10m
+ *    - 또는 목표 깊이의 35-45%
+ *
+ * 4. 속도:
+ *    - 하강(킥): 0.8-1.0 m/s
+ *    - 하강(프리폴): 1.0-1.3 m/s
+ *    - 상승: 0.8-1.0 m/s
+ *    - 턴: 3-5초
+ */
+function calculateRecommendation() {
   const targetDepth = parseInt(document.getElementById('targetDepth').value) || 30;
-
-  if (!apiKey) {
-    alert('Gemini API 키를 입력해주세요.');
-    return;
-  }
-
-  const loading = document.getElementById('loading');
-  loading.classList.add('show');
-
   const neutralBuoyancy = parseInt(document.getElementById('neutralBuoyancy').value) || 10;
 
-  const prompt = `You are a freediving expert. Given a target dive depth of ${targetDepth} meters and neutral buoyancy at ${neutralBuoyancy} meters, recommend optimal dive parameters.
-
-Return ONLY a JSON object with these exact fields (no markdown, no explanation):
-{
-  "mouthfillDepth": <number in meters where mouthfill charging happens, typically 10-15m>,
-  "freefallDepth": <number in meters where freefall begins, typically around 30-40% of target depth>,
-  "turnDepth": ${targetDepth},
-  "diveTime": <total dive time in seconds, estimate based on ~1m/sec descent and ~1m/sec ascent plus turn time>
-}
-
-Consider:
-- Mouthfill charging should happen around 10-15m depth
-- Freefall starts after neutral buoyancy point (${neutralBuoyancy}m) when negative buoyancy kicks in
-- Total dive time = descent time + brief turn + ascent time
-- Descent speed: ~0.8-1.2 m/s with fins, faster in freefall
-- Ascent speed: ~0.8-1.0 m/s
-
-Return only the JSON, nothing else.`;
-
-  try {
-    // 먼저 사용 가능한 모델 찾기
-    const modelName = await findAvailableModel(apiKey);
-
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.3
-        }
-      })
-    });
-
-    const data = await response.json();
-    console.log('전체 API 응답:', JSON.stringify(data, null, 2));
-
-    if (data.error) {
-      throw new Error(data.error.message);
-    }
-
-    if (!data.candidates || !data.candidates[0] || !data.candidates[0].content) {
-      console.error('응답 구조 오류:', data);
-      throw new Error('API 응답 구조가 예상과 다릅니다.');
-    }
-
-    const candidate = data.candidates[0];
-    console.log('finishReason:', candidate.finishReason);
-    console.log('tokenCount:', data.usageMetadata);
-
-    const text = candidate.content.parts[0].text;
-    console.log('Gemini 응답 텍스트:', text);
-
-    // 마크다운 코드블록 제거 및 JSON 추출
-    let cleanText = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
-    const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
-
-    let recommendation;
-
-    // 부분 응답에서 값 추출 시도
-    const extractPartialValues = (text) => {
-      const mouthfill = text.match(/"mouthfillDepth"\s*:\s*(\d+)/);
-      const freefall = text.match(/"freefallDepth"\s*:\s*(\d+)/);
-      const turn = text.match(/"turnDepth"\s*:\s*(\d+)/);
-      const dive = text.match(/"diveTime"\s*:\s*(\d+)/);
-
-      return {
-        mouthfillDepth: mouthfill ? parseInt(mouthfill[1]) : Math.min(15, Math.round(targetDepth * 0.3)),
-        freefallDepth: freefall ? parseInt(freefall[1]) : Math.max(neutralBuoyancy, Math.round(targetDepth * 0.35)),
-        turnDepth: turn ? parseInt(turn[1]) : targetDepth,
-        diveTime: dive ? parseInt(dive[1]) : Math.round(targetDepth * 2.2 + 15)
-      };
-    };
-
-    if (!jsonMatch) {
-      console.warn('JSON 매칭 실패, 부분 값 추출 시도:', text);
-      recommendation = extractPartialValues(text);
-    } else {
-      try {
-        recommendation = JSON.parse(jsonMatch[0]);
-      } catch (parseErr) {
-        console.warn('JSON 파싱 실패, 부분 값 추출 시도:', jsonMatch[0]);
-        recommendation = extractPartialValues(text);
-      }
-    }
-
-    console.log('최종 추천값:', recommendation);
-
-    // Update inputs
-    document.getElementById('mouthfillDepth').value = recommendation.mouthfillDepth;
-    document.getElementById('freefallDepth').value = recommendation.freefallDepth;
-    document.getElementById('turnDepth').value = recommendation.turnDepth;
-    document.getElementById('diveTime').value = recommendation.diveTime;
-
-    // Update params
-    updateParams();
-
-  } catch (error) {
-    console.error('API Error:', error);
-    alert('추천을 가져오는데 실패했습니다: ' + error.message);
-  } finally {
-    loading.classList.remove('show');
+  // 1. 마우스필 깊이 계산
+  // - 기본적으로 10-20m 범위
+  // - 깊은 다이빙(50m+)일수록 더 깊게 (최대 20m)
+  // - 얕은 다이빙(30m 이하)은 10-12m에서 수행
+  let mouthfillDepth;
+  if (targetDepth <= 30) {
+    mouthfillDepth = 10 + Math.round((targetDepth - 10) * 0.1); // 10-12m
+  } else if (targetDepth <= 50) {
+    mouthfillDepth = 12 + Math.round((targetDepth - 30) * 0.15); // 12-15m
+  } else {
+    mouthfillDepth = Math.min(20, 15 + Math.round((targetDepth - 50) * 0.1)); // 15-20m
   }
+  mouthfillDepth = Math.max(10, Math.min(20, mouthfillDepth));
+
+  // 2. 프리폴 시작 깊이 계산
+  // - 중성부력 이후에 시작해야 함
+  // - 일반적으로 중성부력 + 5~10m 또는 목표 깊이의 35-45%
+  const depthBasedFreefall = Math.round(targetDepth * 0.4);
+  const buoyancyBasedFreefall = neutralBuoyancy + 5 + Math.round((targetDepth - 30) * 0.1);
+  let freefallDepth = Math.max(depthBasedFreefall, buoyancyBasedFreefall);
+  // 프리폴은 항상 마우스필 이후, 목표 깊이의 50% 이전
+  freefallDepth = Math.max(mouthfillDepth + 2, Math.min(targetDepth * 0.5, freefallDepth));
+
+  // 3. 다이브 타임 계산 (속도 기반)
+  // 하강 구간별 속도:
+  const kickSpeed = 0.9;        // m/s (표면 → 프리폴 시작)
+  const freefallSpeed = 1.15;   // m/s (프리폴 → 바텀)
+  const ascentSpeed = 0.9;      // m/s (바텀 → 표면)
+  const turnTime = 4;           // 초
+
+  // 하강 시간
+  const kickPhaseTime = freefallDepth / kickSpeed;
+  const freefallPhaseTime = (targetDepth - freefallDepth) / freefallSpeed;
+  const descentTime = kickPhaseTime + freefallPhaseTime;
+
+  // 상승 시간
+  const ascentTime = targetDepth / ascentSpeed;
+
+  // 총 다이브 타임
+  const diveTime = Math.round(descentTime + turnTime + ascentTime);
+
+  // UI 업데이트
+  document.getElementById('mouthfillDepth').value = mouthfillDepth;
+  document.getElementById('freefallDepth').value = Math.round(freefallDepth);
+  document.getElementById('turnDepth').value = targetDepth;
+  document.getElementById('diveTime').value = diveTime;
+
+  console.log('계산 결과:', {
+    targetDepth,
+    neutralBuoyancy,
+    mouthfillDepth,
+    freefallDepth: Math.round(freefallDepth),
+    diveTime,
+    breakdown: {
+      kickPhaseTime: kickPhaseTime.toFixed(1) + 's',
+      freefallPhaseTime: freefallPhaseTime.toFixed(1) + 's',
+      turnTime: turnTime + 's',
+      ascentTime: ascentTime.toFixed(1) + 's'
+    }
+  });
+
+  updateParams();
 }
 
 function updateParams() {
@@ -1153,22 +1032,9 @@ document.getElementById('neutralBuoyancy').addEventListener('change', () => {
   calculateDefaultParams();
 });
 
-// 기본 파라미터 자동 계산
+// 기본 파라미터 자동 계산 (calculateRecommendation과 동일한 로직 사용)
 function calculateDefaultParams() {
-  const targetDepth = parseInt(document.getElementById('targetDepth').value) || 30;
-  const neutralBuoyancy = parseInt(document.getElementById('neutralBuoyancy').value) || 10;
-
-  // 기본 추천값 계산 (중성부력 기준으로 프리폴 깊이 설정)
-  const mouthfillDepth = Math.min(15, Math.round(targetDepth * 0.3)); // 보통 10-15m 전에 마우스필
-  const freefallDepth = Math.max(neutralBuoyancy, Math.round(targetDepth * 0.35)); // 중성부력 이후 프리폴
-  const diveTime = Math.round(targetDepth * 2.2 + 15); // 대략적인 다이브 타임
-
-  document.getElementById('mouthfillDepth').value = mouthfillDepth;
-  document.getElementById('freefallDepth').value = freefallDepth;
-  document.getElementById('turnDepth').value = targetDepth;
-  document.getElementById('diveTime').value = diveTime;
-
-  updateParams();
+  calculateRecommendation();
 }
 
 // Create bubbles
@@ -1191,7 +1057,7 @@ function createBubbles() {
 // Simulation
 function startSimulation() {
   if (params.diveTime === 0) {
-    alert('먼저 AI 추천을 받거나 파라미터를 입력해주세요.');
+    alert('먼저 파라미터를 계산하거나 직접 입력해주세요.');
     return;
   }
 
